@@ -119,6 +119,8 @@ func (dic *hashCerrado[K, V]) Cantidad() int {
 
 func (dic *hashCerrado[K, V]) Iterador() IterDiccionario[K, V] {
 	iter := new(iteradorDiccionarioExterno[K, V])
+	lista := TDALista.CrearListaEnlazada[Celda[V, K]]()
+	iter.iterador = lista.Iterador()
 	return iter
 }
 
@@ -156,10 +158,7 @@ func (dic *hashCerrado[K, V]) obtenerPosVacia(pos int) int {
 }
 
 func (dic *hashCerrado[K, V]) redimensionar() {
-	iter := dic.Iterador()
-	for _, celda = range dic.lista{
-		iter.
-	}
+
 }
 func (dic *hashCerrado[K, V]) obtenerPosClave(clave K) int {
 	pos_clave := dic.f_hash(clave)
