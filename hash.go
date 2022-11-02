@@ -9,7 +9,6 @@ import (
 const (
 	VACIO EstadoCelda = iota
 	OCUPADO
-	BORRADO
 )
 const (
 	CONSTANTE_HOPSCOTCH = 4
@@ -29,6 +28,10 @@ type hashCerrado[K comparable, V any] struct {
 	tabla    []Celda[V, K]
 	cantidad int
 }
+type iteradorDiccionarioExterno[K comparable, V any] struct {
+	lista    *TDALista.Lista[Celda[V, K]]
+	iterador TDALista.IteradorLista[Celda[V, K]]
+}
 
 // FUNCIONES CREADORAS: ----------------------
 
@@ -40,14 +43,9 @@ func crearCelda[V any, K comparable](clave K, valor V) *Celda[V, K] {
 	return celda
 }
 
-func CrearHash[K comparable, V any]() *Diccionario[K, V] {
+func CrearHash[K comparable, V any]() Diccionario[K, V] {
 	tabla := new(Diccionario[K, V])
-	return tabla
-}
-
-func CrearIteradorExterno[T any]() TDALista.Lista[T] {
-	lista := TDALista.CrearListaEnlazada[T]()
-	return lista
+	return *tabla
 }
 
 // ---------------- PRIMITIVAS DEL DICCIONARIO ------------------------------------------
@@ -110,8 +108,9 @@ func (dic *hashCerrado[K, V]) Borrar(clave K) V {
 		panic("clave inexistente")
 	}
 	dic.cantidad--
-	dic.tabla[pos_clave].estado = BORRADO
-	return dic.tabla[pos_clave].valor
+	dato := dic.tabla[pos_clave].valor
+	dic.tabla[pos_clave].estado = VACIO
+	return dato
 }
 
 func (dic *hashCerrado[K, V]) Cantidad() int {
@@ -119,23 +118,48 @@ func (dic *hashCerrado[K, V]) Cantidad() int {
 }
 
 func (dic *hashCerrado[K, V]) Iterador() IterDiccionario[K, V] {
-
+	iter := new(iteradorDiccionarioExterno[K, V])
+	return iter
 }
 
 // --------------------------------------------------------------------
 
+// -----------------PRIMITIVAS DEL ITERADOR ---------------------------
+func (iter iteradorDiccionarioExterno[K, V]) HaySiguiente() bool {
+	return iter.iterador.HaySiguiente()
+
+}
+
+func (iter iteradorDiccionarioExterno[K, V]) Siguiente() K {
+	actual := iter.iterador.Siguiente()
+	return actual.clave
+}
+
+func (iter iteradorDiccionarioExterno[K, V]) VerActual() (K, V) {
+	actual := iter.iterador.VerActual()
+	return actual.clave, actual.valor
+}
+
+// Encuentra una posición válida, de no encontrarse retorna -1
 func (dic *hashCerrado[K, V]) obtenerPosVacia(pos int) int {
-	// Encuentra una posición válida, de no encontrarse retorna -1
-	for i := pos + 1; i <= CONSTANTE_HOPSCOTCH+pos; i++ {
-		if dic.tabla[i].estado != OCUPADO {
+	i := pos + 1
+	for contador := 1; contador < CONSTANTE_HOPSCOTCH; contador++ {
+		if i == len(dic.tabla) {
+			i = 0
+		}
+		if dic.tabla[i].estado == VACIO {
 			return i
 		}
+		i++
 	}
 	return -1
 }
 
 func (dic *hashCerrado[K, V]) redimensionar() {
-
+	iter := dic.Iterador()
+	for _, celda = range dic.lista{
+		iter.
+	}
 }
 func (dic *hashCerrado[K, V]) obtenerPosClave(clave K) int {
 	pos_clave := dic.f_hash(clave)
