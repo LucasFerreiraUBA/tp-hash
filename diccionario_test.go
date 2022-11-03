@@ -3,8 +3,9 @@ package diccionario_test
 import (
 	TDADiccionario "diccionario"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var TAMS_VOLUMEN = []int{12500, 25000, 50000, 100000, 200000, 400000}
@@ -16,6 +17,7 @@ func TestDiccionarioVacio(t *testing.T) {
 	require.False(t, dic.Pertenece("A"))
 	require.PanicsWithValue(t, "La clave no pertenece al diccionario", func() { dic.Obtener("A") })
 	require.PanicsWithValue(t, "La clave no pertenece al diccionario", func() { dic.Borrar("A") })
+
 }
 
 func TestUnElement(t *testing.T) {
@@ -266,14 +268,14 @@ func TestIteradorInternoClaves(t *testing.T) {
 
 	cs := []string{"", "", ""}
 	cantidad := 0
-	cantPtr := &cantidad
-
-	dic.Iterar(func(clave string, dato *int) bool {
-		cs[cantidad] = clave
-		*cantPtr = *cantPtr + 1
-		return true
-	})
-
+	/*
+		cantPtr := &cantidad
+		dic.Iterar(func(clave string, dato *int) bool {
+			cs[cantidad] = clave
+			*cantPtr = *cantPtr + 1
+			return true
+		})
+	*/
 	require.EqualValues(t, 3, cantidad)
 	require.NotEqualValues(t, -1, buscar(cs[0], claves))
 	require.NotEqualValues(t, -1, buscar(cs[1], claves))
@@ -299,12 +301,13 @@ func TestIteradorInternoValores(t *testing.T) {
 	dic.Guardar(clave5, 5)
 
 	factorial := 1
-	ptrFactorial := &factorial
-	dic.Iterar(func(_ string, dato int) bool {
-		*ptrFactorial *= dato
-		return true
-	})
-
+	/*
+		ptrFactorial := &factorial
+		dic.Iterar(func(_ string, dato int) bool {
+			*ptrFactorial *= dato
+			return true
+		})
+	*/
 	require.EqualValues(t, 720, factorial)
 }
 
@@ -552,19 +555,19 @@ func TestVolumenIteradorCorte(t *testing.T) {
 
 	seguirEjecutando := true
 	siguioEjecutandoCuandoNoDebia := false
-
-	dic.Iterar(func(c int, v int) bool {
-		if !seguirEjecutando {
-			siguioEjecutandoCuandoNoDebia = true
-			return false
-		}
-		if c%100 == 0 {
-			seguirEjecutando = false
-			return false
-		}
-		return true
-	})
-
+	/*
+		dic.Iterar(func(c int, v int) bool {
+			if !seguirEjecutando {
+				siguioEjecutandoCuandoNoDebia = true
+				return false
+			}
+			if c%100 == 0 {
+				seguirEjecutando = false
+				return false
+			}
+			return true
+		})
+	*/
 	require.False(t, seguirEjecutando, "Se tendría que haber encontrado un elemento que genere el corte")
 	require.False(t, siguioEjecutandoCuandoNoDebia,
 		"No debería haber seguido ejecutando si encontramos un elemento que hizo que la iteración corte")

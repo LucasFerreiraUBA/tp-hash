@@ -28,8 +28,8 @@ type hashCerrado[K comparable, V any] struct {
 	tabla    []Celda[V, K]
 	cantidad int
 }
+
 type iteradorDiccionarioExterno[K comparable, V any] struct {
-	lista    *TDALista.Lista[Celda[V, K]]
 	iterador TDALista.IteradorLista[Celda[V, K]]
 }
 
@@ -44,8 +44,9 @@ func crearCelda[V any, K comparable](clave K, valor V) *Celda[V, K] {
 }
 
 func CrearHash[K comparable, V any]() Diccionario[K, V] {
-	tabla := new(Diccionario[K, V])
-	return *tabla
+	hash := new(hashCerrado[K, V])
+	hash.tabla = make([]Celda[V, K], 10)
+	return hash
 }
 
 // ---------------- PRIMITIVAS DEL DICCIONARIO ------------------------------------------
@@ -54,7 +55,8 @@ func (dic *hashCerrado[K, V]) Guardar(clave K, dato V) {
 	dic.cantidad++
 	// si la posición está vacia, guarda sin problemas
 	if dic.tabla[pos_clave].estado != VACIO {
-		dic.tabla[pos_clave].asignarCelda(clave, dato)
+		celda := crearCelda(clave, dato)
+		dic.tabla[pos_clave] = *celda
 		return
 	}
 	// si la posición está ocupada me fijo en las proximas posiciones respetando la constante
@@ -78,26 +80,25 @@ func (dic *hashCerrado[K, V]) Guardar(clave K, dato V) {
 			dic.redimensionar()
 		}
 		// la celda actual encontró una posicion vacía en sus siguientes posiciones respetando el rango
-		celda_actual := dic.tabla[pos_actual]
-		celda_vacia := dic.tabla[pos_libre]
-
-		celda_actual, celda_vacia = celda_vacia, celda_actual
+		dic.tabla[pos_actual], dic.tabla[pos_libre] = dic.tabla[pos_libre], dic.tabla[pos_actual]
 		// ahora celda_actual es una celda VACIA
-		celda_actual.asignarCelda(clave, dato)
+		celda := crearCelda(clave, dato)
+		dic.tabla[pos_actual] = *celda
 	}
 	// si en las K siguientes posiciones encuentré una vacía, guardo sin problemas
-	dic.tabla[pos_libre].asignarCelda(clave, dato)
+	celda := crearCelda(clave, dato)
+	dic.tabla[pos_libre] = *celda
 
 }
 
-func (dic *hashCerrado[K, V]) Pertenece(clave K) bool {
-	if dic.obtenerPosClave(clave) == -1 {
-		return false
+func (dic *hashCerrado[K, V]) Pertenece(clave K) bool { //check
+	return dic.obtenerPosClave(clave) != -1
+}
+
+func (dic *hashCerrado[K, V]) Obtener(clave K) V { //check
+	if !dic.Pertenece(clave) {
+		panic("La clave no pertenece al diccionario")
 	}
-	return true
-}
-
-func (dic *hashCerrado[K, V]) Obtener(clave K) V {
 	pos_clave := dic.obtenerPosClave(clave)
 	return dic.tabla[pos_clave].valor
 }
@@ -105,7 +106,7 @@ func (dic *hashCerrado[K, V]) Obtener(clave K) V {
 func (dic *hashCerrado[K, V]) Borrar(clave K) V {
 	pos_clave := dic.obtenerPosClave(clave)
 	if pos_clave == -1 {
-		panic("clave inexistente")
+		panic("La clave no pertenece al diccionario")
 	}
 	dic.cantidad--
 	dato := dic.tabla[pos_clave].valor
@@ -119,28 +120,27 @@ func (dic *hashCerrado[K, V]) Cantidad() int {
 
 func (dic *hashCerrado[K, V]) Iterador() IterDiccionario[K, V] {
 	iter := new(iteradorDiccionarioExterno[K, V])
-	lista := TDALista.CrearListaEnlazada[Celda[V, K]]()
-	iter.iterador = lista.Iterador()
 	return iter
 }
 
-// --------------------------------------------------------------------
-
 // -----------------PRIMITIVAS DEL ITERADOR ---------------------------
-func (iter iteradorDiccionarioExterno[K, V]) HaySiguiente() bool {
+
+func (iter *iteradorDiccionarioExterno[K, V]) HaySiguiente() bool {
 	return iter.iterador.HaySiguiente()
 
 }
 
-func (iter iteradorDiccionarioExterno[K, V]) Siguiente() K {
+func (iter *iteradorDiccionarioExterno[K, V]) Siguiente() K {
 	actual := iter.iterador.Siguiente()
 	return actual.clave
 }
 
-func (iter iteradorDiccionarioExterno[K, V]) VerActual() (K, V) {
+func (iter *iteradorDiccionarioExterno[K, V]) VerActual() (K, V) {
 	actual := iter.iterador.VerActual()
 	return actual.clave, actual.valor
 }
+
+// --------------------------------------------------------------------
 
 // Encuentra una posición válida, de no encontrarse retorna -1
 func (dic *hashCerrado[K, V]) obtenerPosVacia(pos int) int {
@@ -171,11 +171,6 @@ func (dic *hashCerrado[K, V]) obtenerPosClave(clave K) int {
 		}
 	}
 	return -1
-}
-
-func (celda *Celda[V, K]) asignarCelda(clave K, valor V) {
-	celda.clave = clave
-	celda.valor = valor
 }
 
 // ----------FUNCIONES PARA HASHING ---------------------------------
