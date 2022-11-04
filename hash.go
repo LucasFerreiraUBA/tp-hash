@@ -27,10 +27,11 @@ type Celda[V any, K comparable] struct {
 type hashCerrado[K comparable, V any] struct {
 	tabla    []Celda[V, K]
 	cantidad int
+	iter     TDALista.IteradorLista[Celda[V, K]]
 }
 
 type iteradorDiccionarioExterno[K comparable, V any] struct {
-	iterador TDALista.IteradorLista[Celda[V, K]]
+	iterador *TDALista.IteradorLista[Celda[V, K]]
 }
 
 // FUNCIONES CREADORAS: ----------------------
@@ -51,10 +52,16 @@ func CrearHash[K comparable, V any]() Diccionario[K, V] {
 
 // ---------------- PRIMITIVAS DEL DICCIONARIO ------------------------------------------
 func (dic *hashCerrado[K, V]) Guardar(clave K, dato V) {
+	// Si la clave ya existe, actualiza el dato o valor de esa clave
+	if dic.Pertenece(clave) {
+		id_hashing := dic.obtenerPosClave(clave)
+		dic.tabla[id_hashing].valor = dato
+		return
+	}
 	pos_clave := dic.f_hash(clave)
 	dic.cantidad++
 	// si la posición está vacia, guarda sin problemas
-	if dic.tabla[pos_clave].estado != VACIO {
+	if dic.tabla[pos_clave].estado == VACIO {
 		celda := crearCelda(clave, dato)
 		dic.tabla[pos_clave] = *celda
 		return
@@ -66,7 +73,7 @@ func (dic *hashCerrado[K, V]) Guardar(clave K, dato V) {
 		//  Delego a las posiciones siguientes que encuentren un lugar vacío dentro del rango de Hopscotch
 		pos_clave_siguiente := dic.tabla[pos_clave+1].hashingID
 		pos_actual := pos_clave_siguiente
-		for i := pos_clave_siguiente; i <= CONSTANTE_HOPSCOTCH+pos_clave; i++ {
+		for i := pos_clave_siguiente; i < CONSTANTE_HOPSCOTCH+pos_clave; i++ {
 			pos_actual++
 			pos_valida := dic.obtenerPosVacia(i)
 			if pos_valida != -1 {
@@ -92,7 +99,8 @@ func (dic *hashCerrado[K, V]) Guardar(clave K, dato V) {
 }
 
 func (dic *hashCerrado[K, V]) Pertenece(clave K) bool { //check
-	return dic.obtenerPosClave(clave) != -1
+	pos_clave := dic.obtenerPosClave(clave)
+	return pos_clave != -1 && dic.tabla[pos_clave].estado == OCUPADO
 }
 
 func (dic *hashCerrado[K, V]) Obtener(clave K) V { //check
@@ -105,7 +113,7 @@ func (dic *hashCerrado[K, V]) Obtener(clave K) V { //check
 
 func (dic *hashCerrado[K, V]) Borrar(clave K) V {
 	pos_clave := dic.obtenerPosClave(clave)
-	if pos_clave == -1 {
+	if pos_clave == -1 || dic.tabla[pos_clave].estado != OCUPADO {
 		panic("La clave no pertenece al diccionario")
 	}
 	dic.cantidad--
@@ -120,23 +128,31 @@ func (dic *hashCerrado[K, V]) Cantidad() int {
 
 func (dic *hashCerrado[K, V]) Iterador() IterDiccionario[K, V] {
 	iter := new(iteradorDiccionarioExterno[K, V])
+	lista := TDALista.CrearListaEnlazada[Celda[V, K]]()
+	for i, elem := range dic.tabla {
+		if dic.tabla[i].estado == OCUPADO {
+			lista.InsertarUltimo(elem)
+		}
+	}
+	dic.iter = lista.Iterador()
+	iter.iterador = &dic.iter
 	return iter
 }
 
 // -----------------PRIMITIVAS DEL ITERADOR ---------------------------
 
 func (iter *iteradorDiccionarioExterno[K, V]) HaySiguiente() bool {
-	return iter.iterador.HaySiguiente()
+	return (*iter.iterador).HaySiguiente()
 
 }
 
 func (iter *iteradorDiccionarioExterno[K, V]) Siguiente() K {
-	actual := iter.iterador.Siguiente()
+	actual := (*iter.iterador).VerActual()
 	return actual.clave
 }
 
 func (iter *iteradorDiccionarioExterno[K, V]) VerActual() (K, V) {
-	actual := iter.iterador.VerActual()
+	actual := (*iter.iterador).VerActual()
 	return actual.clave, actual.valor
 }
 
@@ -165,11 +181,17 @@ func (dic *hashCerrado[K, V]) obtenerPosClave(clave K) int {
 	if dic.tabla[pos_clave].clave == clave {
 		return pos_clave
 	}
-	for i := pos_clave + 1; i < CONSTANTE_HOPSCOTCH+pos_clave; i++ {
+
+	i := pos_clave + 1
+	for contador := 1; contador < CONSTANTE_HOPSCOTCH; contador++ {
+		if i == len(dic.tabla) {
+			i = 0
+		}
 		if dic.tabla[i].clave == clave {
 			return i
 		}
 	}
+
 	return -1
 }
 
@@ -192,5 +214,12 @@ func sdbmHash(data []byte) int64 {
 func (dic *hashCerrado[K, V]) f_hash(clave K) int {
 	clave_bytes := convertirABytes(clave)
 	id_hashing := sdbmHash(clave_bytes)
-	return int(id_hashing) % len(dic.tabla)
+	return modulo(int(id_hashing)) % len(dic.tabla)
+}
+
+func modulo(n int) int {
+	if n < 0 {
+		return n * -1
+	}
+	return n
 }
