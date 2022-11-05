@@ -53,17 +53,22 @@ func CrearHash[K comparable, V any]() Diccionario[K, V] {
 // ---------------- PRIMITIVAS DEL DICCIONARIO ------------------------------------------
 func (dic *hashCerrado[K, V]) Guardar(clave K, dato V) {
 	// Si la clave ya existe, actualiza el dato o valor de esa clave
+	fmt.Println(len(dic.tabla))
 	if dic.Pertenece(clave) {
 		id_hashing := dic.obtenerPosClave(clave)
 		dic.tabla[id_hashing].valor = dato
 		return
 	}
-	pos_clave := dic.f_hash(clave)
 	dic.cantidad++
+	if dic.Cantidad() >= len(dic.tabla)/2 {
+		dic.redimensionar(len(dic.tabla) * 2)
+	}
+	pos_clave := dic.f_hash(clave)
 	// si la posición está vacia, guarda sin problemas
 	if dic.tabla[pos_clave].estado == VACIO {
 		celda := crearCelda(clave, dato)
 		dic.tabla[pos_clave] = *celda
+		dic.tabla[pos_clave].hashingID = pos_clave
 		return
 	}
 	// si la posición está ocupada me fijo en las proximas posiciones respetando la constante
@@ -71,7 +76,13 @@ func (dic *hashCerrado[K, V]) Guardar(clave K, dato V) {
 
 	if pos_libre == -1 { // Si las K siguientes pos no estan vacias:
 		//  Delego a las posiciones siguientes que encuentren un lugar vacío dentro del rango de Hopscotch
-		pos_clave_siguiente := dic.tabla[pos_clave+1].hashingID
+		var pos_sig int
+		if pos_clave >= len(dic.tabla)-1 {
+			pos_sig = 0
+		} else {
+			pos_sig = pos_clave + 1
+		}
+		pos_clave_siguiente := dic.tabla[pos_sig].hashingID
 		pos_actual := pos_clave_siguiente
 		for i := pos_clave_siguiente; i < CONSTANTE_HOPSCOTCH+pos_clave; i++ {
 			pos_actual++
@@ -84,16 +95,21 @@ func (dic *hashCerrado[K, V]) Guardar(clave K, dato V) {
 
 		// las siguientes posiciones no lograron encontrar celdas vacias, redimensiono
 		if pos_libre == -1 {
-			dic.redimensionar()
+			dic.redimensionar(len(dic.tabla) * 2)
+			dic.cantidad--
+			dic.Guardar(clave, dato)
+			return
 		}
 		// la celda actual encontró una posicion vacía en sus siguientes posiciones respetando el rango
 		dic.tabla[pos_actual], dic.tabla[pos_libre] = dic.tabla[pos_libre], dic.tabla[pos_actual]
 		// ahora celda_actual es una celda VACIA
 		celda := crearCelda(clave, dato)
+		celda.hashingID = pos_clave
 		dic.tabla[pos_actual] = *celda
 	}
 	// si en las K siguientes posiciones encuentré una vacía, guardo sin problemas
 	celda := crearCelda(clave, dato)
+	celda.hashingID = pos_clave
 	dic.tabla[pos_libre] = *celda
 
 }
@@ -119,6 +135,9 @@ func (dic *hashCerrado[K, V]) Borrar(clave K) V {
 	dic.cantidad--
 	dato := dic.tabla[pos_clave].valor
 	dic.tabla[pos_clave].estado = VACIO
+	if dic.Cantidad() <= len(dic.tabla)/4 && len(dic.tabla) > 10 {
+		dic.redimensionar(len(dic.tabla) / 2)
+	}
 	return dato
 }
 
@@ -139,6 +158,18 @@ func (dic *hashCerrado[K, V]) Iterador() IterDiccionario[K, V] {
 	return iter
 }
 
+func (dic *hashCerrado[K, V]) Iterar(visitar func(clave K, dato V) bool) {
+	iter := dic.Iterador()
+	for iter.HaySiguiente() {
+		clave, dato := iter.VerActual()
+		if !visitar(clave, dato) {
+			return
+		}
+		iter.Siguiente()
+	}
+
+}
+
 // -----------------PRIMITIVAS DEL ITERADOR ---------------------------
 
 func (iter *iteradorDiccionarioExterno[K, V]) HaySiguiente() bool {
@@ -147,7 +178,7 @@ func (iter *iteradorDiccionarioExterno[K, V]) HaySiguiente() bool {
 }
 
 func (iter *iteradorDiccionarioExterno[K, V]) Siguiente() K {
-	actual := (*iter.iterador).VerActual()
+	actual := (*iter.iterador).Siguiente()
 	return actual.clave
 }
 
@@ -173,9 +204,20 @@ func (dic *hashCerrado[K, V]) obtenerPosVacia(pos int) int {
 	return -1
 }
 
-func (dic *hashCerrado[K, V]) redimensionar() {
-
+func (dic *hashCerrado[K, V]) redimensionar(capacidad int) {
+	nuevo_dic := make([]Celda[V, K], capacidad)
+	iter := dic.Iterador()
+	dic.tabla = nuevo_dic
+	for iter.HaySiguiente() {
+		clave, valor := iter.VerActual()
+		nuevo_id_hashing := dic.f_hash(clave)
+		nueva_celda := crearCelda(clave, valor)
+		nuevo_dic[nuevo_id_hashing] = *nueva_celda
+		nuevo_dic[nuevo_id_hashing].hashingID = nuevo_id_hashing
+		iter.Siguiente()
+	}
 }
+
 func (dic *hashCerrado[K, V]) obtenerPosClave(clave K) int {
 	pos_clave := dic.f_hash(clave)
 	if dic.tabla[pos_clave].clave == clave {
